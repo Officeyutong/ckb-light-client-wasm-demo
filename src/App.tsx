@@ -1,26 +1,25 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { useEffect, useState } from "react";
+// import networkConfig from "../config.toml";
+import LightClient, { randomSecretKey } from "light-client-js";
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+const Main: React.FC<{}> = () => {
+    const [loading, setLoading] = useState(false);
+    const [client, setClient] = useState<null | LightClient>(null);
+
+    useEffect(() => {
+        if (client === null) (async () => {
+            try {
+                setLoading(true);
+                const client = new LightClient();
+                await client.start({ type: "TestNet", config: 'ssss' }, randomSecretKey(), "info");
+                setClient(client);
+                setLoading(false);
+            } catch (e) { console.error(e); }
+        })();
+    }, [client]);
+    return <div style={{ marginTop: "10%", marginLeft: "10%", marginRight: "10%" }}>
+        {loading && "loading.."}
     </div>
-  );
 }
 
-export default App;
+export default Main;
