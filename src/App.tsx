@@ -3,11 +3,12 @@ import networkConfig from "./config.toml";
 import { LightClient, LightClientSetScriptsCommand, randomSecretKey } from "light-client-js";
 import { Button, Container, Dimmer, Divider, Form, Header, Loader, Message, Segment, Table } from "semantic-ui-react";
 import 'semantic-ui-css/semantic.min.css'
-import { bytesFrom, ccc, CellOutputLike, hashCkb, Hex, hexFrom, Transaction } from "@ckb-ccc/core";
+import { bytesFrom, ccc, CellOutputLike, ClientBlockHeader, hashCkb, Hex, hexFrom, Transaction } from "@ckb-ccc/core";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import InputNewBlockDialog from "./InputNewBlockDialog";
 import { ClientCollectableSearchKeyLike } from "@ckb-ccc/core/dist.commonjs/advancedBarrel";
 import { GetTransactionsResponse, TxWithCells } from "light-client-js/dist/types";
+import { DateTime } from "luxon";
 enum StateId {
     Loadingclient = 1,
     ClientLoaded = 2
@@ -102,7 +103,7 @@ const Main: React.FC<{}> = () => {
                         } as ClientCollectableSearchKeyLike;
                         setBalance(await client.getCellsCapacity(searchKey));
                         const validateCell = (v: CellOutputLike) => v.lock?.args === signerScript.args && v.lock?.codeHash === signerScript.codeHash && v.lock?.hashType === signerScript.hashType;
-                        const txs = await client.getTransactions({ ...searchKey, groupByTransaction: true }, "asc", 5) as GetTransactionsResponse<TxWithCells>;
+                        const txs = await client.getTransactions({ ...searchKey, groupByTransaction: true }, "desc") as GetTransactionsResponse<TxWithCells>;
                         const resultTx: DisplayTransaction[] = [];
                         for (const tx of txs.transactions) {
                             console.log("handler tx", tx);
@@ -119,9 +120,10 @@ const Main: React.FC<{}> = () => {
                                         inputCapSum += previousOutput.capacity;
                                 }
                                 console.log("out cap sum=", outCapSum, "input cap sum=", inputCapSum);
+                                const currTxBlockDetail: ClientBlockHeader = await client.getHeader((await client.getTransaction(currTx.hash()))!.blockHash!)!;
                                 resultTx.push({
                                     balanceChange: outCapSum - inputCapSum,
-                                    timestamp: 0,
+                                    timestamp: Number(currTxBlockDetail.timestamp),
                                     txHash: currTx.hash()
                                 })
                             })()
@@ -195,6 +197,9 @@ const Main: React.FC<{}> = () => {
                                     Transaction Hash
                                 </Table.HeaderCell>
                                 <Table.HeaderCell>
+                                    Time
+                                </Table.HeaderCell>
+                                <Table.HeaderCell>
                                     Balance change
                                 </Table.HeaderCell>
                             </Table.Row>
@@ -204,6 +209,9 @@ const Main: React.FC<{}> = () => {
                                 return <Table.Row key={item.txHash}>
                                     <Table.Cell>
                                         <a href={`https://testnet.explorer.nervos.org/transaction/${item.txHash}`} target="_blank" rel="noreferrer">{item.txHash}</a>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        {DateTime.fromSeconds(item.timestamp / 1000).toJSDate().toLocaleString()}
                                     </Table.Cell>
                                     <Table.Cell>
                                         {Number(item.balanceChange) / 1e8}
