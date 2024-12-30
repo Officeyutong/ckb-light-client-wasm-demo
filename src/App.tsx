@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import networkConfig from "./config.toml";
 import { LightClient, LightClientSetScriptsCommand, randomSecretKey } from "light-client-js";
-import { Button, Container, Dimmer, Divider, Form, Header, Loader, Message, Segment } from "semantic-ui-react";
+import { Button, Container, Dimmer, Divider, Form, Header, Loader, Message, Segment, Table } from "semantic-ui-react";
 import 'semantic-ui-css/semantic.min.css'
-import { bytesFrom, ccc, hashCkb, Hex, hexFrom } from "@ckb-ccc/core";
+import { bytesFrom, ccc, CellOutputLike, hashCkb, Hex, hexFrom, Transaction } from "@ckb-ccc/core";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import InputNewBlockDialog from "./InputNewBlockDialog";
 import { ClientCollectableSearchKeyLike } from "@ckb-ccc/core/dist.commonjs/advancedBarrel";
@@ -32,6 +32,12 @@ const generatePrivateKey = () => {
     return hexFrom(buf);
 };
 
+interface DisplayTransaction {
+    txHash: Hex;
+    balanceChange: bigint;
+    timestamp: number;
+}
+
 const PRIVATE_KEY_NAME = "ckb-light-client-wasm-demo-private-key";
 const START_BLOCK_KEY_NAME = "ckb-light-client-wasm-demo-start-block";
 const Main: React.FC<{}> = () => {
@@ -43,8 +49,7 @@ const Main: React.FC<{}> = () => {
     const [startBlock, setStartBlock] = useState<number>(0);
 
     const [balance, setBalance] = useState<bigint>(BigInt(0));
-    const [transactions, setTransactions] = useState<TxWithCells[]>([]);
-
+    const [transactions, setTransactions] = useState<DisplayTransaction[]>([]);
 
     const [showSetBlockDialog, setShowSetBlockDialog] = useState(false);
     useEffect(() => {
@@ -94,11 +99,34 @@ const Main: React.FC<{}> = () => {
                             scriptType: "lock",
                             script: signerScript,
                             scriptSearchMode: "prefix",
-                            withData: false,
                         } as ClientCollectableSearchKeyLike;
                         setBalance(await client.getCellsCapacity(searchKey));
-                        const txs = await client.getTransactions({ ...searchKey, groupByTransaction: true }, "desc", 5) as GetTransactionsResponse<TxWithCells>;
-                        setTransactions(txs.transactions);
+                        const validateCell = (v: CellOutputLike) => v.lock?.args === signerScript.args && v.lock?.codeHash === signerScript.codeHash && v.lock?.hashType === signerScript.hashType;
+                        const txs = await client.getTransactions({ ...searchKey, groupByTransaction: true }, "asc", 5) as GetTransactionsResponse<TxWithCells>;
+                        const resultTx: DisplayTransaction[] = [];
+                        for (const tx of txs.transactions) {
+                            console.log("handler tx", tx);
+                            const currTx = tx.transaction as Transaction;
+                            const outCapSum = currTx.outputs.filter(validateCell).map(s => s.capacity).reduce((a, b) => a + b, BigInt(0));
+                            let inputCapSum = BigInt(0);
+                            await (async () => {
+                                for (const input of currTx.inputs) {
+                                    const inputTx = await client.fetchTransaction(input.previousOutput.txHash);
+                                    console.log("got input tx", inputTx);
+                                    if (inputTx.status !== "fetched") return;
+                                    const previousOutput = inputTx.data.transaction.outputs[Number(input.previousOutput.index)];
+                                    if (validateCell(previousOutput))
+                                        inputCapSum += previousOutput.capacity;
+                                }
+                                console.log("out cap sum=", outCapSum, "input cap sum=", inputCapSum);
+                                resultTx.push({
+                                    balanceChange: outCapSum - inputCapSum,
+                                    timestamp: 0,
+                                    txHash: currTx.hash()
+                                })
+                            })()
+                        }
+                        setTransactions(resultTx);
                         await new Promise((res) => setTimeout(res, 3000));
                     }
                 })();
@@ -157,6 +185,33 @@ const Main: React.FC<{}> = () => {
                 <Form.Field>
                     <label>Balance</label>
                     {Number(balance) / 1e8} CKB
+                </Form.Field>
+                <Form.Field>
+                    <label>Recent 5 transactions</label>
+                    <Table>
+                        <Table.Header>
+                            <Table.Row>
+                                <Table.HeaderCell>
+                                    Transaction Hash
+                                </Table.HeaderCell>
+                                <Table.HeaderCell>
+                                    Balance change
+                                </Table.HeaderCell>
+                            </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                            {transactions.map((item) => {
+                                return <Table.Row key={item.txHash}>
+                                    <Table.Cell>
+                                        <a href={`https://testnet.explorer.nervos.org/transaction/${item.txHash}`} target="_blank" rel="noreferrer">{item.txHash}</a>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        {Number(item.balanceChange) / 1e8}
+                                    </Table.Cell>
+                                </Table.Row>;
+                            })}
+                        </Table.Body>
+                    </Table>
                 </Form.Field>
             </Form>}
             <Divider></Divider>
