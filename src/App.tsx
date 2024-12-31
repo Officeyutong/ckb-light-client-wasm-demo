@@ -69,7 +69,8 @@ const Main: React.FC<{}> = () => {
                     secretKey = randomSecretKey();
                     localStorage.setItem(SECRET_KEY_NAME, secretKey as Hex);
                 }
-                await client.start({ type: "TestNet", config }, secretKey, "info");
+                const enableDebug = localStorage.getItem("debug") !== null;
+                await client.start({ type: "TestNet", config }, secretKey, enableDebug ? "debug" : "info");
                 let privateKey = localStorage.getItem(PRIVATE_KEY_NAME) as Hex | null;
                 if (privateKey === null) {
                     privateKey = generatePrivateKey();
