@@ -41,6 +41,7 @@ interface DisplayTransaction {
 
 const PRIVATE_KEY_NAME = "ckb-light-client-wasm-demo-private-key";
 const START_BLOCK_KEY_NAME = "ckb-light-client-wasm-demo-start-block";
+const SECRET_KEY_NAME = "ckb-light-client-wasm-demo-secret-key";
 const Main: React.FC<{}> = () => {
     const [state, setState] = useState<StateLoadingClient | StateClientLoaded>({ id: StateId.Loadingclient });
     const initFlag = useRef<boolean>(false);
@@ -60,9 +61,15 @@ const Main: React.FC<{}> = () => {
                 initFlag.current = true;
                 console.log("loading")
                 const config = await (await fetch(networkConfig)).text();
+                console.log("Network config", config);
                 const client = new LightClient();
                 (window as any).client = client;
-                await client.start({ type: "TestNet", config }, randomSecretKey(), "info");
+                let secretKey = localStorage.getItem(SECRET_KEY_NAME) as Hex | null;
+                if (secretKey === null) {
+                    secretKey = randomSecretKey();
+                    localStorage.setItem(SECRET_KEY_NAME, secretKey as Hex);
+                }
+                await client.start({ type: "TestNet", config }, secretKey, "info");
                 let privateKey = localStorage.getItem(PRIVATE_KEY_NAME) as Hex | null;
                 if (privateKey === null) {
                     privateKey = generatePrivateKey();
