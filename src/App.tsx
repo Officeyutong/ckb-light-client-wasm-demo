@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import networkConfig from "./config.toml";
-import { LightClient, LightClientSetScriptsCommand, randomSecretKey } from "light-client-js";
-import { Button, Container, Dimmer, Divider, Form, Header, Loader, Message, Segment, Table } from "semantic-ui-react";
+import { LightClient, LightClientSetScriptsCommand, randomSecretKey, RemoteNode, Transaction } from "light-client-js";
+import { Button, Container, Dimmer, Divider, Form, Header, List, Loader, Message, Segment, Table } from "semantic-ui-react";
 import 'semantic-ui-css/semantic.min.css'
-import { bytesFrom, ccc, CellOutputLike, ClientBlockHeader, hashCkb, Hex, hexFrom, Transaction } from "@ckb-ccc/core";
+import { bytesFrom, ccc, CellOutputLike, ClientBlockHeader, hashCkb, Hex, hexFrom } from "@ckb-ccc/core";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import InputNewBlockDialog from "./InputNewBlockDialog";
-import { ClientCollectableSearchKeyLike } from "@ckb-ccc/core/dist.commonjs/advancedBarrel";
-import { GetTransactionsResponse, TxWithCells } from "light-client-js/dist/types";
+import { ClientCollectableSearchKeyLike } from "@ckb-ccc/core/advancedBarrel";
+import { GetTransactionsResponse, TxWithCells } from "light-client-js";
 import { DateTime } from "luxon";
+import MakeTransferDialog from "./MakeTransferDialog";
 enum StateId {
     Loadingclient = 1,
     ClientLoaded = 2
@@ -52,8 +53,10 @@ const Main: React.FC<{}> = () => {
 
     const [balance, setBalance] = useState<bigint>(BigInt(0));
     const [transactions, setTransactions] = useState<DisplayTransaction[]>([]);
+    const [peers, setPeers] = useState<RemoteNode[]>([]);
 
     const [showSetBlockDialog, setShowSetBlockDialog] = useState(false);
+    const [showMakeTransferDialog, setShowMakeTransferDialog] = useState(false);
     useEffect(() => {
         if (state.id === StateId.Loadingclient) (async () => {
             try {
@@ -102,6 +105,7 @@ const Main: React.FC<{}> = () => {
                 (async () => {
                     while (true) {
                         console.log("Updating block info..");
+                        setPeers(await client.getPeers());
                         setTopBlock((await client.getTipHeader()).number);
                         setSyncedBlock((await client.getScripts())[0].blockNumber);
                         const searchKey = {
@@ -114,21 +118,21 @@ const Main: React.FC<{}> = () => {
                         const txs = await client.getTransactions({ ...searchKey, groupByTransaction: true }, "desc") as GetTransactionsResponse<TxWithCells>;
                         const resultTx: DisplayTransaction[] = [];
                         for (const tx of txs.transactions) {
-                            console.log("handler tx", tx);
+                            // console.log("handler tx", tx);
                             const currTx = tx.transaction as Transaction;
                             const outCapSum = currTx.outputs.filter(validateCell).map(s => s.capacity).reduce((a, b) => a + b, BigInt(0));
                             let inputCapSum = BigInt(0);
                             await (async () => {
                                 for (const input of currTx.inputs) {
                                     const inputTx = await client.fetchTransaction(input.previousOutput.txHash);
-                                    console.log("got input tx", inputTx);
+                                    // console.log("got input tx", inputTx);
                                     if (inputTx.status !== "fetched") return;
                                     const previousOutput = inputTx.data.transaction.outputs[Number(input.previousOutput.index)];
                                     if (validateCell(previousOutput))
                                         inputCapSum += previousOutput.capacity;
                                 }
-                                console.log("out cap sum=", outCapSum, "input cap sum=", inputCapSum);
-                                const currTxBlockDetail: ClientBlockHeader = await client.getHeader((await client.getTransaction(currTx.hash()))!.blockHash!)!;
+                                // console.log("out cap sum=", outCapSum, "input cap sum=", inputCapSum);
+                                const currTxBlockDetail: ClientBlockHeader = (await client.getHeader((await client.getTransaction(currTx.hash()))!.blockHash!))!;
                                 resultTx.push({
                                     balanceChange: outCapSum - inputCapSum,
                                     timestamp: Number(currTxBlockDetail.timestamp),
@@ -161,6 +165,13 @@ const Main: React.FC<{}> = () => {
                 setShowSetBlockDialog(false);
             }}
         ></InputNewBlockDialog>}
+        {showMakeTransferDialog && <MakeTransferDialog
+            client={(state as StateClientLoaded).client}
+            signerScript={(state as StateClientLoaded).script}
+            currentBalance={balance}
+            onClose={() => setShowMakeTransferDialog(false)}
+            signerPrivateKey={(state as StateClientLoaded).privateKey}
+        ></MakeTransferDialog>}
         {(state.id === StateId.Loadingclient) && <Dimmer page active><Loader></Loader></Dimmer>}
         <Header as="h1">
             Light Client Wasm Demo
@@ -197,7 +208,7 @@ const Main: React.FC<{}> = () => {
                     {Number(balance) / 1e8} CKB
                 </Form.Field>
                 <Form.Field>
-                    <label>Recent 5 transactions</label>
+                    <label>Recent transactions</label>
                     <Table>
                         <Table.Header>
                             <Table.Row>
@@ -229,9 +240,43 @@ const Main: React.FC<{}> = () => {
                         </Table.Body>
                     </Table>
                 </Form.Field>
+                <Form.Field>
+                    <label>Connected Peers</label>
+                    <Table compact>
+                        <Table.Header>
+                            <Table.Row>
+                                <Table.HeaderCell>
+                                    Node Id
+                                </Table.HeaderCell>
+                                <Table.HeaderCell>
+                                    Connected Duration
+                                </Table.HeaderCell>
+                                <Table.HeaderCell>
+                                    Addresses
+                                </Table.HeaderCell>
+                            </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                            {peers.map(item => <Table.Row key={item.nodeId}>
+                                <Table.Cell>
+                                    {item.nodeId}
+                                </Table.Cell>
+                                <Table.Cell>
+                                    {Math.floor(Number(item.connestedDuration) / 1000 / 60)} min
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <List bulleted>
+                                        {item.addresses.map(itemAddr => <List.Item style={{ wordBreak: "break-all" }} key={itemAddr.address}>{itemAddr.address} （{Number(itemAddr.score)}）</List.Item>)}
+                                    </List>
+                                </Table.Cell>
+                            </Table.Row>)}
+                        </Table.Body>
+                    </Table>
+                </Form.Field>
             </Form>}
             <Divider></Divider>
             <Button onClick={() => setShowSetBlockDialog(true)}>Set start block height</Button>
+            <Button onClick={() => setShowMakeTransferDialog(true)}>Transfer</Button>
         </Segment>
     </Container>
 }
