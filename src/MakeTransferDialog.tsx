@@ -115,7 +115,7 @@ const MakeTransferDialog: React.FC<{
             hasher.update(tx.getWitnessArgsAt(0)!.toBytes());
             for (let i = 1; i < tx.inputs.length; i++) {
                 const current = tx.getWitnessArgsAt(i)!.toBytes();
-                const witnessLenBytes = numToBytes(current, 8);
+                const witnessLenBytes = numToBytes(current.length, 8);
                 console.assert(witnessLenBytes.length === 8);
                 hasher.update(witnessLenBytes);
                 hasher.update(current);
