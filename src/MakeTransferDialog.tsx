@@ -58,7 +58,7 @@ const MakeTransferDialog: React.FC<{
             // Collect cells
             const requiredBalance = BigInt(transactionFee) + BigInt((parseFloat(amount) * 1e8));
             let currentBalance = BigInt(0);
-           
+
             const collectedCells: CellWithBlockNumAndTxIndex[] = [];
             let lastCursor: Hex | undefined;
             while (true) {
@@ -156,17 +156,20 @@ const MakeTransferDialog: React.FC<{
                     <label>Available balance</label>
                     {Number(currentBalance) / 1e8} CKB
                 </Form.Field>
-                {txHash !== null && <Form.Field>
-                    <label>Transaction hash</label>
-                    <a href={`https://testnet.explorer.nervos.org/transaction/${txHash}`} target="_blank" rel="noreferrer">{txHash}</a>
-                </Form.Field>}
+
             </Form>
-            <Message info>
+            {txHash === null && <Message info>
                 <Message.Header>Note</Message.Header>
                 <Message.Content>
                     Only secp256blake160 addresses are supported
                 </Message.Content>
-            </Message>
+            </Message>}
+            {txHash !== null && <Message success>
+                <Message.Header>Transaction sended</Message.Header>
+                <Message.Content>
+                    <a href={`https://testnet.explorer.nervos.org/transaction/${txHash}`} target="_blank" rel="noreferrer">{txHash}</a>
+                </Message.Content>
+            </Message>}
         </Modal.Content>
         <Modal.Actions>
             {txHash === null && <>

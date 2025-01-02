@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import networkConfig from "./config.toml";
 import { LightClient, LightClientSetScriptsCommand, randomSecretKey, RemoteNode, Transaction } from "light-client-js";
 import { Button, Container, Dimmer, Divider, Form, Header, List, Loader, Message, Segment, Table } from "semantic-ui-react";
@@ -12,7 +12,8 @@ import { DateTime } from "luxon";
 import MakeTransferDialog from "./MakeTransferDialog";
 enum StateId {
     Loadingclient = 1,
-    ClientLoaded = 2
+    ClientLoaded = 2,
+    AccountGenerated = 3
 }
 
 interface StateLoadingClient {
@@ -22,13 +23,17 @@ interface StateLoadingClient {
 interface StateClientLoaded extends Omit<StateLoadingClient, "id"> {
     id: StateId.ClientLoaded;
     client: LightClient;
+}
+
+interface StateAccountGenerated extends Omit<StateClientLoaded, "id"> {
+    id: StateId.AccountGenerated;
     privateKey: Hex;
     publicKey: Hex;
     address: ccc.Address;
     script: ccc.Script;
 }
 
-const generatePrivateKey = () => {
+const randomPrivateKey = () => {
     const buf = new Uint8Array(32);
     crypto.getRandomValues(buf);
     return hexFrom(buf);
@@ -44,7 +49,7 @@ const PRIVATE_KEY_NAME = "ckb-light-client-wasm-demo-private-key";
 const START_BLOCK_KEY_NAME = "ckb-light-client-wasm-demo-start-block";
 const SECRET_KEY_NAME = "ckb-light-client-wasm-demo-secret-key";
 const Main: React.FC<{}> = () => {
-    const [state, setState] = useState<StateLoadingClient | StateClientLoaded>({ id: StateId.Loadingclient });
+    const [state, setState] = useState<StateLoadingClient | StateClientLoaded | StateAccountGenerated>({ id: StateId.Loadingclient });
     const initFlag = useRef<boolean>(false);
 
     const [syncedBlock, setSyncedBlock] = useState<bigint>(BigInt(0));
@@ -57,6 +62,39 @@ const Main: React.FC<{}> = () => {
 
     const [showSetBlockDialog, setShowSetBlockDialog] = useState(false);
     const [showMakeTransferDialog, setShowMakeTransferDialog] = useState(false);
+
+    const [loading, setLoading] = useState(false);
+
+    const [debugMode, setDebugMode] = useState(false);
+
+    const loadPrivateKey = useCallback(async (client: LightClient, privateKey: Hex) => {
+        const publicKey = hexFrom(secp256k1.getPublicKey(bytesFrom(privateKey), true));
+        const signerScript = ccc.Script.from({
+            codeHash: "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+            hashType: "type",
+            args: bytesFrom(hashCkb(publicKey)).slice(0, 20)
+        })
+        const address = ccc.Address.from({ prefix: "ckt", script: signerScript });
+        setState({ id: StateId.AccountGenerated, privateKey, publicKey, address, script: signerScript, client });
+        return signerScript;
+    }, []);
+    const generatePrivateKey = async (client: LightClient) => {
+        try {
+            setLoading(true);
+            const privateKey = randomPrivateKey();
+            localStorage.setItem(PRIVATE_KEY_NAME, privateKey);
+            const signerScript = await loadPrivateKey(client, privateKey);
+            const tipHeader = await client.getTipHeader();
+            await client.setScripts([
+                { blockNumber: tipHeader.number, script: signerScript, scriptType: "lock" }
+            ], LightClientSetScriptsCommand.All);
+            localStorage.setItem(START_BLOCK_KEY_NAME, tipHeader.number.toString());
+        } catch (e) {
+            alert(e); console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
     useEffect(() => {
         if (state.id === StateId.Loadingclient) (async () => {
             try {
@@ -74,78 +112,67 @@ const Main: React.FC<{}> = () => {
                 }
                 const enableDebug = localStorage.getItem("debug") !== null;
                 await client.start({ type: "TestNet", config }, secretKey, enableDebug ? "debug" : "info");
-                let privateKey = localStorage.getItem(PRIVATE_KEY_NAME) as Hex | null;
-                if (privateKey === null) {
-                    privateKey = generatePrivateKey();
-                    localStorage.setItem(PRIVATE_KEY_NAME, privateKey);
-                }
+                setDebugMode(enableDebug);
                 let startBlock = localStorage.getItem(START_BLOCK_KEY_NAME);
                 if (startBlock === null) {
                     startBlock = "0";
                     localStorage.setItem(START_BLOCK_KEY_NAME, startBlock);
                 }
-                const publicKey = hexFrom(secp256k1.getPublicKey(bytesFrom(privateKey), true));
-                const signerScript = ccc.Script.from({
-                    codeHash: "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-                    hashType: "type",
-                    args: bytesFrom(hashCkb(publicKey)).slice(0, 20)
-                })
-                const address = ccc.Address.from({ prefix: "ckt", script: signerScript });
-                const currentScripts = await client.getScripts();
-                if (currentScripts.find(v => v.script.args === signerScript.args && v.script.codeHash === signerScript.args && v.script.hashType === signerScript.hashType) === undefined) {
-                    console.log("Setting scripts");
-                    await client.setScripts([{
-                        script: signerScript,
-                        blockNumber: BigInt(startBlock),
-                        scriptType: "lock"
-                    }], LightClientSetScriptsCommand.All);
-                }
                 setStartBlock(parseInt(startBlock));
-                setState({ id: StateId.ClientLoaded, client, privateKey, publicKey, address, script: signerScript });
-                (async () => {
-                    while (true) {
-                        console.log("Updating block info..");
-                        setPeers(await client.getPeers());
-                        setTopBlock((await client.getTipHeader()).number);
-                        setSyncedBlock((await client.getScripts())[0].blockNumber);
-                        const searchKey = {
-                            scriptType: "lock",
-                            script: signerScript,
-                            scriptSearchMode: "prefix",
-                        } as ClientCollectableSearchKeyLike;
-                        setBalance(await client.getCellsCapacity(searchKey));
-                        const validateCell = (v: CellOutputLike) => v.lock?.args === signerScript.args && v.lock?.codeHash === signerScript.codeHash && v.lock?.hashType === signerScript.hashType;
-                        const txs = await client.getTransactions({ ...searchKey, groupByTransaction: true }, "desc") as GetTransactionsResponse<TxWithCells>;
-                        const resultTx: DisplayTransaction[] = [];
-                        for (const tx of txs.transactions) {
-                            // console.log("handler tx", tx);
-                            const currTx = tx.transaction as Transaction;
-                            const outCapSum = currTx.outputs.filter(validateCell).map(s => s.capacity).reduce((a, b) => a + b, BigInt(0));
-                            let inputCapSum = BigInt(0);
-                            await (async () => {
-                                for (const input of currTx.inputs) {
-                                    const inputTx = await client.fetchTransaction(input.previousOutput.txHash);
-                                    // console.log("got input tx", inputTx);
-                                    if (inputTx.status !== "fetched") return;
-                                    const previousOutput = inputTx.data.transaction.outputs[Number(input.previousOutput.index)];
-                                    if (validateCell(previousOutput))
-                                        inputCapSum += previousOutput.capacity;
-                                }
-                                // console.log("out cap sum=", outCapSum, "input cap sum=", inputCapSum);
-                                const currTxBlockDetail: ClientBlockHeader = (await client.getHeader((await client.getTransaction(currTx.hash()))!.blockHash!))!;
-                                resultTx.push({
-                                    balanceChange: outCapSum - inputCapSum,
-                                    timestamp: Number(currTxBlockDetail.timestamp),
-                                    txHash: currTx.hash()
-                                })
-                            })()
-                        }
-                        setTransactions(resultTx);
-                        await new Promise((res) => setTimeout(res, 3000));
-                    }
-                })();
+                setState({ id: StateId.ClientLoaded, client });
+                let privateKey = localStorage.getItem(PRIVATE_KEY_NAME) as Hex | null;
+                if (privateKey !== null) await loadPrivateKey(client, privateKey);
             } catch (e) { console.error(e); alert(e); } finally { initFlag.current = false; }
         })();
+    }, [loadPrivateKey, state]);
+
+    useEffect(() => {
+        if (state.id === StateId.AccountGenerated) {
+            (async () => {
+                const script = state.script;
+                while (true) {
+                    console.log("Updating block info..");
+                    setPeers(await state.client.getPeers());
+                    setTopBlock((await state.client.getTipHeader()).number);
+                    setSyncedBlock((await state.client.getScripts())[0].blockNumber);
+
+                    const searchKey = {
+                        scriptType: "lock",
+                        script: script,
+                        scriptSearchMode: "prefix",
+                    } as ClientCollectableSearchKeyLike;
+                    setBalance(await state.client.getCellsCapacity(searchKey));
+                    const validateCell = (v: CellOutputLike) => v.lock?.args === script.args && v.lock?.codeHash === script.codeHash && v.lock?.hashType === script.hashType;
+                    const txs = await state.client.getTransactions({ ...searchKey, groupByTransaction: true }, "desc") as GetTransactionsResponse<TxWithCells>;
+                    const resultTx: DisplayTransaction[] = [];
+                    for (const tx of txs.transactions) {
+                        // console.log("handler tx", tx);
+                        const currTx = tx.transaction as Transaction;
+                        const outCapSum = currTx.outputs.filter(validateCell).map(s => s.capacity).reduce((a, b) => a + b, BigInt(0));
+                        let inputCapSum = BigInt(0);
+                        await (async () => {
+                            for (const input of currTx.inputs) {
+                                const inputTx = await state.client.fetchTransaction(input.previousOutput.txHash);
+                                // console.log("got input tx", inputTx);
+                                if (inputTx.status !== "fetched") return;
+                                const previousOutput = inputTx.data.transaction.outputs[Number(input.previousOutput.index)];
+                                if (validateCell(previousOutput))
+                                    inputCapSum += previousOutput.capacity;
+                            }
+                            // console.log("out cap sum=", outCapSum, "input cap sum=", inputCapSum);
+                            const currTxBlockDetail: ClientBlockHeader = (await state.client.getHeader((await state.client.getTransaction(currTx.hash()))!.blockHash!))!;
+                            resultTx.push({
+                                balanceChange: outCapSum - inputCapSum,
+                                timestamp: Number(currTxBlockDetail.timestamp),
+                                txHash: currTx.hash()
+                            })
+                        })()
+                    }
+                    setTransactions(resultTx);
+                    await new Promise((res) => setTimeout(res, 3000));
+                }
+            })();
+        }
     }, [state]);
     return <Container style={{ marginTop: "5%", marginLeft: "5%", marginRight: "5%" }}>
         {showSetBlockDialog && <InputNewBlockDialog
@@ -154,7 +181,7 @@ const Main: React.FC<{}> = () => {
             onClose={value => {
                 if (value !== undefined) {
                     setStartBlock(value);
-                    const currState = (state as StateClientLoaded);
+                    const currState = (state as StateAccountGenerated);
                     currState.client.setScripts([{
                         script: currState.script,
                         blockNumber: BigInt(value),
@@ -166,13 +193,13 @@ const Main: React.FC<{}> = () => {
             }}
         ></InputNewBlockDialog>}
         {showMakeTransferDialog && <MakeTransferDialog
-            client={(state as StateClientLoaded).client}
-            signerScript={(state as StateClientLoaded).script}
+            client={(state as StateAccountGenerated).client}
+            signerScript={(state as StateAccountGenerated).script}
             currentBalance={balance}
             onClose={() => setShowMakeTransferDialog(false)}
-            signerPrivateKey={(state as StateClientLoaded).privateKey}
+            signerPrivateKey={(state as StateAccountGenerated).privateKey}
         ></MakeTransferDialog>}
-        {(state.id === StateId.Loadingclient) && <Dimmer page active><Loader></Loader></Dimmer>}
+        {(state.id === StateId.Loadingclient || loading) && <Dimmer page active><Loader></Loader></Dimmer>}
         <Header as="h1">
             Light Client Wasm Demo
         </Header>
@@ -186,7 +213,10 @@ const Main: React.FC<{}> = () => {
                     <Message.Item>Make transfers</Message.Item>
                 </Message.List>
             </Message>
-            {state.id === StateId.ClientLoaded && <Form>
+            {state.id === StateId.ClientLoaded && <>
+                <Button onClick={() => generatePrivateKey(state.client)}>Generate a private key</Button>
+            </>}
+            {state.id === StateId.AccountGenerated && <Form>
                 <Form.Field>
                     <label>Your private key:</label>
                     {state.privateKey}
@@ -273,10 +303,11 @@ const Main: React.FC<{}> = () => {
                         </Table.Body>
                     </Table>
                 </Form.Field>
+                <Divider></Divider>
+                {debugMode && <Button onClick={() => setShowSetBlockDialog(true)}>Set start block height</Button>}
+                <Button onClick={() => setShowMakeTransferDialog(true)}>Transfer</Button>
             </Form>}
-            <Divider></Divider>
-            <Button onClick={() => setShowSetBlockDialog(true)}>Set start block height</Button>
-            <Button onClick={() => setShowMakeTransferDialog(true)}>Transfer</Button>
+
         </Segment>
     </Container>
 }
