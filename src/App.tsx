@@ -174,6 +174,12 @@ const Main: React.FC<{}> = () => {
             })();
         }
     }, [state]);
+    const removeAccount = () => {
+        localStorage.removeItem(PRIVATE_KEY_NAME);
+        localStorage.removeItem(START_BLOCK_KEY_NAME);
+        localStorage.removeItem(SECRET_KEY_NAME);
+        window.location.reload();
+    };
     return <Container style={{ marginTop: "5%", marginLeft: "5%", marginRight: "5%" }}>
         {showSetBlockDialog && <InputNewBlockDialog
             currentBlock={Number(syncedBlock)}
@@ -306,6 +312,7 @@ const Main: React.FC<{}> = () => {
                 <Divider></Divider>
                 {debugMode && <Button onClick={() => setShowSetBlockDialog(true)}>Set start block height</Button>}
                 <Button onClick={() => setShowMakeTransferDialog(true)}>Transfer</Button>
+                <Button onClick={() => removeAccount()}>Remove stored private key</Button>
             </Form>}
 
         </Segment>
