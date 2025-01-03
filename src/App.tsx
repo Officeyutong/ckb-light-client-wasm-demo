@@ -65,7 +65,7 @@ const Main: React.FC<{}> = () => {
 
     const [loading, setLoading] = useState(false);
 
-    const [debugMode, setDebugMode] = useState(false);
+    // const [debugMode, setDebugMode] = useState(false);
 
     const loadPrivateKey = useCallback(async (client: LightClient, privateKey: Hex) => {
         const publicKey = hexFrom(secp256k1.getPublicKey(bytesFrom(privateKey), true));
@@ -112,7 +112,7 @@ const Main: React.FC<{}> = () => {
                 }
                 const enableDebug = localStorage.getItem("debug") !== null;
                 await client.start({ type: "TestNet", config }, secretKey, enableDebug ? "debug" : "info");
-                setDebugMode(enableDebug);
+                // setDebugMode(enableDebug);
                 let startBlock = localStorage.getItem(START_BLOCK_KEY_NAME);
                 if (startBlock === null) {
                     startBlock = "0";
@@ -310,7 +310,7 @@ const Main: React.FC<{}> = () => {
                     </Table>
                 </Form.Field>
                 <Divider></Divider>
-                {debugMode && <Button onClick={() => setShowSetBlockDialog(true)}>Set start block height</Button>}
+                <Button onClick={() => setShowSetBlockDialog(true)}>Set start block height</Button>
                 <Button onClick={() => setShowMakeTransferDialog(true)}>Transfer</Button>
                 <Button onClick={() => removeAccount()}>Remove stored private key</Button>
             </Form>}
