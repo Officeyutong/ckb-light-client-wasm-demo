@@ -20,7 +20,6 @@ const paths = require('./paths');
 const modules = require('./modules');
 const getClientEnvironment = require('./env');
 const ModuleNotFoundPlugin = require('react-dev-utils/ModuleNotFoundPlugin');
-const CopyPlugin = require("copy-webpack-plugin");
 
 const ForkTsCheckerWebpackPlugin =
   process.env.TSC_COMPILE_ON_ERROR === 'true'
@@ -587,11 +586,6 @@ module.exports = function (webpackEnv) {
       ].filter(Boolean),
     },
     plugins: [
-      new CopyPlugin({
-        patterns: [
-          { context: "node_modules/light-client-js/dist/", from: "*.js", to: "static/js", toType: "dir" },
-        ],
-      }),
       // Generates an `index.html` file with the <script> injected.
       new HtmlWebpackPlugin(
         Object.assign(
