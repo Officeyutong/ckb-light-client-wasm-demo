@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import networkConfig from "./config.toml";
-import { LightClient, LightClientSetScriptsCommand, randomSecretKey, RemoteNode, Transaction } from "light-client-js";
+import { LightClient, LightClientSetScriptsCommand, randomSecretKey, RemoteNode, Transaction } from "ckb-light-client-js";
 import { Button, Container, Dimmer, Divider, Form, Header, List, Loader, Message, Segment, Table } from "semantic-ui-react";
 import 'semantic-ui-css/semantic.min.css'
 import { bytesFrom, ccc, CellOutputLike, ClientBlockHeader, hashCkb, Hex, hexFrom } from "@ckb-ccc/core";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import InputNewBlockDialog from "./InputNewBlockDialog";
 import { ClientCollectableSearchKeyLike } from "@ckb-ccc/core/advancedBarrel";
-import { GetTransactionsResponse, TxWithCells } from "light-client-js";
+import { GetTransactionsResponse, TxWithCells } from "ckb-light-client-js";
 import { DateTime } from "luxon";
 import MakeTransferDialog from "./MakeTransferDialog";
 enum StateId {

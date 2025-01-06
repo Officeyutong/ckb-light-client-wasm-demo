@@ -3439,6 +3439,13 @@ cjs-module-lexer@^1.0.0:
   resolved "https://registry.npmmirror.com/cjs-module-lexer/-/cjs-module-lexer-1.4.1.tgz"
   integrity sha512-cuSVIHi9/9E/+821Qjdvngor+xpnlwnuwIyZOaLmHBVdXL+gP+I6QQB9VkO7RI77YIcTV+S1W9AreJ5eN63JBA==
 
+"ckb-light-client-js@file:./ckb-light-client/wasm/light-client-js":
+  version "1.0.0"
+  dependencies:
+    "@ckb-ccc/core" "0.1.0-alpha.6"
+    async-mutex "^0.5.0"
+    stream-browserify "^3.0.0"
+
 clean-css@^5.2.2:
   version "5.3.3"
   resolved "https://registry.npmmirror.com/clean-css/-/clean-css-5.3.3.tgz"
@@ -6730,21 +6737,6 @@ levn@~0.3.0:
   dependencies:
     prelude-ls "~1.1.2"
     type-check "~0.3.2"
-
-"light-client-db-worker@file:ckb-light-client/light-client-db-worker":
-  version "0.1.0"
-
-"light-client-js@file:./ckb-light-client/light-client-js":
-  version "1.0.0"
-  dependencies:
-    "@ckb-ccc/core" "0.1.0-alpha.6"
-    async-mutex "^0.5.0"
-    light-client-db-worker "file:../../usr/local/share/.cache/yarn/v6/npm-light-client-js-1.0.0-7c7fff97-e935-4bf0-bbdb-ce5420c7ce00-1736177572817/node_modules/light-client-db-worker"
-    light-client-wasm "file:../../usr/local/share/.cache/yarn/v6/npm-light-client-js-1.0.0-7c7fff97-e935-4bf0-bbdb-ce5420c7ce00-1736177572817/node_modules/light-client-wasm"
-    stream-browserify "^3.0.0"
-
-"light-client-wasm@file:ckb-light-client/light-client-wasm":
-  version "0.1.0"
 
 lilconfig@^2.0.3:
   version "2.1.0"

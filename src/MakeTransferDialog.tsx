@@ -1,9 +1,8 @@
 import { bytesConcat, bytesFrom, HasherCkb, hashTypeFromBytes, Hex, hexFrom, HexLike, numBeToBytes, numFrom, numToBytes, WitnessArgs } from "@ckb-ccc/core";
-import { LightClient } from "light-client-js";
+import { CellWithBlockNumAndTxIndex, LightClient } from "ckb-light-client-js";
 import { useState } from "react";
 import { Button, Dimmer, Form, Input, Loader, Message, Modal } from "semantic-ui-react";
 import { ccc } from "@ckb-ccc/core";
-import { CellWithBlockNumAndTxIndex } from "light-client-js";
 import { AddressFormat, addressPayloadFromString } from "@ckb-ccc/core/advancedBarrel";
 import { secp256k1 } from "@noble/curves/secp256k1";
 
