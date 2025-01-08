@@ -3439,10 +3439,10 @@ cjs-module-lexer@^1.0.0:
   resolved "https://registry.npmmirror.com/cjs-module-lexer/-/cjs-module-lexer-1.4.1.tgz"
   integrity sha512-cuSVIHi9/9E/+821Qjdvngor+xpnlwnuwIyZOaLmHBVdXL+gP+I6QQB9VkO7RI77YIcTV+S1W9AreJ5eN63JBA==
 
-ckb-light-client-js@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.npmjs.org/ckb-light-client-js/-/ckb-light-client-js-1.0.0.tgz#d3213140e0b7e13ee1fd4aaa8e86423d328a5ea6"
-  integrity sha512-JBzZ57dK1jar6LbSJOr1msgRVqnIXw5yK3LxsatirYoU9IhOlcniaveXcuhaoVuCELaDdNjuaRW9orxkYWQv0A==
+ckb-light-client-js@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.npmjs.org/ckb-light-client-js/-/ckb-light-client-js-1.0.1.tgz#0cb6224841562014cb679c4ff6fc97f2a3d1093e"
+  integrity sha512-UaMwpi+rxBjS9MZ+FtzsEk6vlLBb8XOBmUPxBtw1wRVDrImJOQl5xAzMphwD3cRR0gAYMZRtFmMLNTZGHS+Rjw==
   dependencies:
     "@ckb-ccc/core" "0.1.0-alpha.6"
     async-mutex "^0.5.0"
