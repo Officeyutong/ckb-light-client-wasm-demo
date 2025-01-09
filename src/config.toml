@@ -17,7 +17,7 @@ listen_addresses = ["/ip4/0.0.0.0/tcp/8110"]
 # When chain.spec is changed, this usually should also be changed to the bootnodes in the new chain.
 bootnodes = [
     # Ohio, North America
-    "/dns4/yutong.site/tcp/8200/wss/p2p/QmZ3g4ikFdUijFyQdDsuxnvMwgC4uMU4Ux8siwPGPxLnRC",
+    "/dns4/wss-proxy.yutong.site/tcp/8200/wss/p2p/QmZ3g4ikFdUijFyQdDsuxnvMwgC4uMU4Ux8siwPGPxLnRC",
     # "/ip4/18.167.71.41/tcp/8115/wss/p2p/QmZ3g4ikFdUijFyQdDsuxnvMwgC4uMU4Ux8siwPGPxLnRC",
     # # Singapore, Asia
     # "/ip4/18.136.60.221/tcp/8111/p2p/QmTt6HeNakL8Fpmevrhdna7J4NzEMf9pLchf1CXtmtSrwb",
