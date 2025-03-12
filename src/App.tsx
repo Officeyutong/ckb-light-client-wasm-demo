@@ -134,7 +134,7 @@ const Main: React.FC<{}> = () => {
                     console.log("Updating block info..");
                     setPeers(await state.client.getPeers());
                     setTopBlock((await state.client.getTipHeader()).number);
-                    setSyncedBlock((await state.client.getScripts())[0].blockNumber);
+                    setSyncedBlock((await state.client.getScripts())[0]?.blockNumber ?? 0);
 
                     const searchKey = {
                         scriptType: "lock",
