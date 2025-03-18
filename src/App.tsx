@@ -219,6 +219,15 @@ const Main: React.FC<{}> = () => {
                     <Message.Item>Make transfers</Message.Item>
                 </Message.List>
             </Message>
+            <Message warning>
+                <Message.Header>Notice</Message.Header>
+                <Message.List>
+                    <Message.Item>This demo used <pre style={{ display: "inline" }}>Atomics.waitAsync</pre>, an API not supported by FireFox. Using Chrome or Safari is suggested. See <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Atomics/waitAsync">here</a> for details.</Message.Item>
+                    <Message.Item>This is only a demonstration of light-client-wasm. It's not a well-designed wallet.</Message.Item>
+                    <Message.Item>No guarantees regarding security are provided.</Message.Item>
+                </Message.List>
+            </Message>
+
             {state.id === StateId.ClientLoaded && <>
                 <Button onClick={() => generatePrivateKey(state.client)}>Generate a private key</Button>
             </>}
